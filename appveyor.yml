@@ -1,0 +1,37 @@
+sudo: required
+language: generic
+
+services:
+  - docker
+
+before_install:
+  - docker build -t alfredocm80/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run alfredocm80/react-test npm test -- --coverage
+
+after_success:
+  - docker build -t alfredocm80/multi-client ./client
+  - docker build -t alfredocm80/multi-nginx ./nginx
+  - docker build -t alfredocm80/multi-server ./server
+  - docker build -t alfredocm80/multi-worker ./worker
+#Proceso de login a docker hub
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+#Cargar imagenes a docker hub
+  - docker push alfredocm80/multi-client
+  - docker push alfredocm80/multi-nginx
+  - docker push alfredocm80/multi-server
+  - docker push alfredocm80/multi-worker
+
+  deploy:
+    provider: elasticbeanstalk
+    region: us-west-1
+    app: multi-docker
+    env: MultiDocker-env
+    bucket_name: elasticbeanstalk-us-west-1-XXXXXXXXXXXX
+    bucket_path: docker-multi
+    on:
+      branch: master
+    acces_key_id: $AWS_ACCESS_KEY
+    secret_access_key:
+      secure: $AWS_SECRET_KEY
